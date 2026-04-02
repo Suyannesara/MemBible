@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "359921682921",
+    "project_id": "mem-bible",
+    "storage_bucket": "mem-bible.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:359921682921:android:ef62208e641e93d7f26378",
+        "android_client_info": {
+          "package_name": "com.example.mem_bible_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSOCCFOFb3gkhlptw11OUS5N3KjoHcBFw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
