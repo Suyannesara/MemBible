@@ -20,6 +20,7 @@ class VersiculosPage extends StatefulWidget {
 class _VersiculosPageState extends State<VersiculosPage> {
   List versiculos = [];
   bool carregando = true;
+  final respostaController = TextEditingController();
 
   @override
   void initState() {
@@ -48,7 +49,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
   }
 
   String esconderPalavras(String texto) {
-    List palavras = texto.split(" ");
+    List<String> palavras = texto.split(" ");
 
     int quantidadeEsconder;
 
@@ -60,14 +61,30 @@ class _VersiculosPageState extends State<VersiculosPage> {
       quantidadeEsconder = (palavras.length * 0.6).round();
     }
 
-    palavras.shuffle();
+    List<int> indices = List.generate(palavras.length, (i) => i);
+    indices.shuffle();
 
     for (int i = 0; i < quantidadeEsconder; i++) {
-      int index = palavras.indexOf(palavras[i]);
-      palavras[index] = "_____";
+      palavras[indices[i]] = "_____";
     }
 
     return palavras.join(" ");
+  }
+
+  void verificarResposta(String respostaUsuario, String respostaCorreta) {
+    String normalizar(String texto) {
+      return texto.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    }
+
+    if (normalizar(respostaUsuario) == normalizar(respostaCorreta)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Acertou!")));
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Errou!")));
+    }
   }
 
   @override
@@ -88,6 +105,8 @@ class _VersiculosPageState extends State<VersiculosPage> {
                 itemCount: versiculos.length,
                 itemBuilder: (context, index) {
                   final verso = versiculos[index];
+                  final textoOriginal = verso["text"];
+                  final textoOculto = esconderPalavras(textoOriginal);
 
                   return Card(
                     shape: RoundedRectangleBorder(
@@ -106,10 +125,40 @@ class _VersiculosPageState extends State<VersiculosPage> {
                               color: Colors.red,
                             ),
                           ),
+
                           const SizedBox(height: 10),
+
+                          /// TEXTO COM LACUNAS
                           Text(
-                            esconderPalavras(verso["text"]),
+                            textoOculto,
                             style: const TextStyle(fontSize: 16),
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          /// CAMPO DE RESPOSTA
+                          TextField(
+                            controller: respostaController,
+                            decoration: const InputDecoration(
+                              labelText: "Digite o versículo completo",
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          /// BOTÃO VERIFICAR
+                          ElevatedButton(
+                            onPressed: () {
+                              verificarResposta(
+                                respostaController.text,
+                                textoOriginal,
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            child: const Text("Verificar"),
                           ),
                         ],
                       ),
