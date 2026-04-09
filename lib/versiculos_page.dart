@@ -4,11 +4,13 @@ import 'services/biblia_service.dart';
 class VersiculosPage extends StatefulWidget {
   final String livro;
   final String capitulo;
+  final String nivel;
 
   const VersiculosPage({
     super.key,
     required this.livro,
     required this.capitulo,
+    required this.nivel,
   });
 
   @override
@@ -45,6 +47,29 @@ class _VersiculosPageState extends State<VersiculosPage> {
     }
   }
 
+  String esconderPalavras(String texto) {
+    List palavras = texto.split(" ");
+
+    int quantidadeEsconder;
+
+    if (widget.nivel == "facil") {
+      quantidadeEsconder = (palavras.length * 0.2).round();
+    } else if (widget.nivel == "medio") {
+      quantidadeEsconder = (palavras.length * 0.4).round();
+    } else {
+      quantidadeEsconder = (palavras.length * 0.6).round();
+    }
+
+    palavras.shuffle();
+
+    for (int i = 0; i < quantidadeEsconder; i++) {
+      int index = palavras.indexOf(palavras[i]);
+      palavras[index] = "_____";
+    }
+
+    return palavras.join(" ");
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,9 +81,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
           ? const Center(child: CircularProgressIndicator())
           : Container(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.red, Colors.orange],
-                ),
+                gradient: LinearGradient(colors: [Colors.red, Colors.orange]),
               ),
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
@@ -85,7 +108,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            verso["text"],
+                            esconderPalavras(verso["text"]),
                             style: const TextStyle(fontSize: 16),
                           ),
                         ],

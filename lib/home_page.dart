@@ -12,6 +12,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List livros = [];
   bool carregando = true;
+  String nivel = "facil";
 
   String? livroSelecionado;
   String capitulo = "1";
@@ -92,6 +93,33 @@ class _HomePageState extends State<HomePage> {
                               },
                             ),
 
+                            DropdownButtonFormField<String>(
+                              value: nivel,
+                              items: const [
+                                DropdownMenuItem(
+                                  value: "facil",
+                                  child: Text("Fácil"),
+                                ),
+                                DropdownMenuItem(
+                                  value: "medio",
+                                  child: Text("Médio"),
+                                ),
+                                DropdownMenuItem(
+                                  value: "dificil",
+                                  child: Text("Difícil"),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  nivel = value!;
+                                });
+                              },
+                              decoration: const InputDecoration(
+                                labelText: "Dificuldade",
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+
                             const SizedBox(height: 15),
 
                             TextField(
@@ -115,6 +143,7 @@ class _HomePageState extends State<HomePage> {
                                     builder: (_) => VersiculosPage(
                                       livro: livroSelecionado!,
                                       capitulo: capitulo,
+                                      nivel: nivel,
                                     ),
                                   ),
                                 );
