@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'services/biblia_service.dart';
 
 class VersiculosPage extends StatefulWidget {
   final String livro;
@@ -28,12 +27,11 @@ class _VersiculosPageState extends State<VersiculosPage> {
 
   Future<void> buscarVersiculos() async {
     try {
-      final url =
-          "https://bible-api.com/${widget.livro}+${widget.capitulo}";
-
-      final response = await http.get(Uri.parse(url));
-
-      final data = json.decode(response.body);
+      final data = await BibliaService.getVersiculos(
+        "acf",
+        widget.livro,
+        widget.capitulo,
+      );
 
       setState(() {
         versiculos = data["verses"];
@@ -60,8 +58,6 @@ class _VersiculosPageState extends State<VersiculosPage> {
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Colors.red, Colors.orange],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
                 ),
               ),
               child: ListView.builder(
@@ -81,7 +77,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Verso ${verso["verse"]}",
+                            "Verso ${verso["number"]}",
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.red,
