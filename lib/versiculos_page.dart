@@ -20,12 +20,23 @@ class VersiculosPage extends StatefulWidget {
 class _VersiculosPageState extends State<VersiculosPage> {
   List versiculos = [];
   bool carregando = true;
+
+  int indiceAtual = 0;
+  bool respondeu = false;
+  bool acertou = false;
+
   final respostaController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     buscarVersiculos();
+  }
+
+  @override
+  void dispose() {
+    respostaController.dispose();
+    super.dispose();
   }
 
   Future<void> buscarVersiculos() async {
@@ -73,100 +84,182 @@ class _VersiculosPageState extends State<VersiculosPage> {
 
   void verificarResposta(String respostaUsuario, String respostaCorreta) {
     String normalizar(String texto) {
-      return texto.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      return texto
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^\w\s]'), '')
+          .trim();
     }
 
-    if (normalizar(respostaUsuario) == normalizar(respostaCorreta)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Acertou!")));
+    setState(() {
+      respondeu = true;
+      acertou =
+          normalizar(respostaUsuario) == normalizar(respostaCorreta);
+    });
+  }
+
+  void proximoVersiculo() {
+    if (indiceAtual < versiculos.length - 1) {
+      setState(() {
+        indiceAtual++;
+        respondeu = false;
+        respostaController.clear();
+      });
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Errou!")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("🎉 Você terminou o capítulo!")),
+      );
     }
+  }
+
+  double progresso() {
+    if (versiculos.isEmpty) return 0;
+    return (indiceAtual + 1) / versiculos.length;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (carregando) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final verso = versiculos[indiceAtual];
+    final textoOriginal = verso["text"];
+    final textoOculto = esconderPalavras(textoOriginal);
+
     return Scaffold(
       appBar: AppBar(
         title: Text("${widget.livro.toUpperCase()} ${widget.capitulo}"),
         backgroundColor: Colors.red,
       ),
-      body: carregando
-          ? const Center(child: CircularProgressIndicator())
-          : Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Colors.red, Colors.orange]),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.red, Colors.orange],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+
+              /// 🔥 PROGRESSO
+              LinearProgressIndicator(
+                value: progresso(),
+                minHeight: 10,
+                backgroundColor: Colors.grey[300],
+                color: Colors.white,
               ),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: versiculos.length,
-                itemBuilder: (context, index) {
-                  final verso = versiculos[index];
-                  final textoOriginal = verso["text"];
-                  final textoOculto = esconderPalavras(textoOriginal);
 
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    margin: const EdgeInsets.only(bottom: 15),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Verso ${verso["number"]}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red,
-                            ),
-                          ),
+              const SizedBox(height: 20),
 
-                          const SizedBox(height: 10),
+              Text(
+                "Versículo ${verso["number"]}",
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
 
-                          /// TEXTO COM LACUNAS
-                          Text(
-                            textoOculto,
-                            style: const TextStyle(fontSize: 16),
-                          ),
+              const SizedBox(height: 20),
 
-                          const SizedBox(height: 15),
+              /// CARD PRINCIPAL
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                elevation: 10,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
 
-                          /// CAMPO DE RESPOSTA
-                          TextField(
-                            controller: respostaController,
-                            decoration: const InputDecoration(
-                              labelText: "Digite o versículo completo",
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          /// BOTÃO VERIFICAR
-                          ElevatedButton(
-                            onPressed: () {
-                              verificarResposta(
-                                respostaController.text,
-                                textoOriginal,
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                            child: const Text("Verificar"),
-                          ),
-                        ],
+                      /// TEXTO COM LACUNAS
+                      Text(
+                        textoOculto,
+                        style: const TextStyle(fontSize: 18),
                       ),
-                    ),
-                  );
-                },
+
+                      const SizedBox(height: 20),
+
+                      /// INPUT
+                      TextField(
+                        controller: respostaController,
+                        enabled: !respondeu,
+                        decoration: const InputDecoration(
+                          labelText: "Digite o versículo completo",
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      /// BOTÃO VERIFICAR
+                      if (!respondeu)
+                        ElevatedButton(
+                          onPressed: () {
+                            verificarResposta(
+                              respostaController.text,
+                              textoOriginal,
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: const Text("Verificar"),
+                        ),
+
+                      const SizedBox(height: 20),
+
+                      /// FEEDBACK
+                      if (respondeu)
+                        Column(
+                          children: [
+                            Text(
+                              acertou ? "✅ Acertou!" : "❌ Errou!",
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: acertou
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            /// MOSTRAR RESPOSTA CORRETA
+                            if (!acertou)
+                              Text(
+                                textoOriginal,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+
+                            const SizedBox(height: 20),
+
+                            /// PRÓXIMO
+                            ElevatedButton(
+                              onPressed: proximoVersiculo,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                minimumSize:
+                                    const Size(double.infinity, 50),
+                              ),
+                              child: const Text("Próximo"),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
