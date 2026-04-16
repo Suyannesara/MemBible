@@ -32,8 +32,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
   @override
   void initState() {
     super.initState();
-    buscarVersiculos();
-    carregarProgresso();
+    buscarVersiculos(); // 🔥 agora só isso
   }
 
   @override
@@ -42,23 +41,16 @@ class _VersiculosPageState extends State<VersiculosPage> {
     super.dispose();
   }
 
-  void carregarProgresso() async {
-    final data = await ProgressoService.carregarProgresso();
-
-    if (data != null &&
-        data["livro"] == widget.livro &&
-        data["capitulo"] == widget.capitulo) {
-      setState(() {
-        indiceAtual = data["indice"] ?? 0;
-        acertos = data["acertos"] ?? 0;
-      });
-    }
-  }
-
+  /// 🔥 BUSCAR + PROGRESSO JUNTO
   Future<void> buscarVersiculos() async {
     try {
       final data = await BibliaService.getVersiculos(
-        "acf",
+        "nvi",
+        widget.livro,
+        widget.capitulo,
+      );
+
+      final progresso = await ProgressoService.carregarProgresso(
         widget.livro,
         widget.capitulo,
       );
@@ -66,6 +58,11 @@ class _VersiculosPageState extends State<VersiculosPage> {
       setState(() {
         versiculos = data["verses"];
         carregando = false;
+
+        if (progresso != null) {
+          indiceAtual = (progresso["indice"] ?? 0).toInt();
+          acertos = (progresso["acertos"] ?? 0).toInt();
+        }
       });
     } catch (e) {
       print(e);
@@ -75,6 +72,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
     }
   }
 
+  /// 🔥 ESCONDER PALAVRAS
   String esconderPalavras(String texto) {
     List<String> palavras = texto.split(" ");
 
@@ -98,6 +96,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
     return palavras.join(" ");
   }
 
+  /// 🔥 SALVAR
   void salvarProgresso() {
     ProgressoService.salvarProgresso(
       livro: widget.livro,
@@ -108,14 +107,19 @@ class _VersiculosPageState extends State<VersiculosPage> {
     );
   }
 
+  /// 🔥 VERIFICAR
   void verificarResposta(String respostaUsuario, String respostaCorreta) {
     String normalizar(String texto) {
-      return texto.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      return texto
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^\w\s]'), '')
+          .trim();
     }
 
     setState(() {
       respondeu = true;
-      acertou = normalizar(respostaUsuario) == normalizar(respostaCorreta);
+      acertou =
+          normalizar(respostaUsuario) == normalizar(respostaCorreta);
 
       if (acertou) acertos++;
     });
@@ -123,22 +127,39 @@ class _VersiculosPageState extends State<VersiculosPage> {
     salvarProgresso();
   }
 
+  /// 🔥 PRÓXIMO
   void proximoVersiculo() {
     if (indiceAtual < versiculos.length - 1) {
       setState(() {
         indiceAtual++;
         respondeu = false;
+        acertou = false;
         respostaController.clear();
       });
 
-      salvarProgresso();
+      salvarProgresso(); // ✅ só aqui
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("🎉 Terminou! Acertos: $acertos")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("🎉 Terminou! Acertos: $acertos")),
+      );
     }
   }
 
+  /// 🔥 VOLTAR
+  void voltarVersiculo() {
+    if (indiceAtual > 0) {
+      setState(() {
+        indiceAtual--;
+        respondeu = false;
+        acertou = false;
+        respostaController.clear();
+      });
+
+      // ❌ NÃO salva progresso
+    }
+  }
+
+  /// 🔥 PROGRESSO
   double progresso() {
     if (versiculos.isEmpty) return 0;
     return (indiceAtual + 1) / versiculos.length;
@@ -147,7 +168,9 @@ class _VersiculosPageState extends State<VersiculosPage> {
   @override
   Widget build(BuildContext context) {
     if (carregando) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     final verso = versiculos[indiceAtual];
@@ -167,12 +190,21 @@ class _VersiculosPageState extends State<VersiculosPage> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
+
               /// 🔥 PROGRESSO
               LinearProgressIndicator(
                 value: progresso(),
                 minHeight: 10,
                 backgroundColor: Colors.grey[300],
                 color: Colors.white,
+              ),
+
+              const SizedBox(height: 10),
+
+              /// 🔥 POSIÇÃO
+              Text(
+                "Versículo ${indiceAtual + 1} de ${versiculos.length}",
+                style: const TextStyle(color: Colors.white),
               ),
 
               const SizedBox(height: 20),
@@ -188,7 +220,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
 
               const SizedBox(height: 20),
 
-              /// CARD PRINCIPAL
+              /// 🔥 CARD
               Card(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -198,12 +230,12 @@ class _VersiculosPageState extends State<VersiculosPage> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      /// TEXTO COM LACUNAS
-                      Text(textoOculto, style: const TextStyle(fontSize: 18)),
+
+                      Text(textoOculto,
+                          style: const TextStyle(fontSize: 18)),
 
                       const SizedBox(height: 20),
 
-                      /// INPUT
                       TextField(
                         controller: respostaController,
                         enabled: !respondeu,
@@ -215,7 +247,6 @@ class _VersiculosPageState extends State<VersiculosPage> {
 
                       const SizedBox(height: 20),
 
-                      /// BOTÃO VERIFICAR
                       if (!respondeu)
                         ElevatedButton(
                           onPressed: () {
@@ -226,43 +257,47 @@ class _VersiculosPageState extends State<VersiculosPage> {
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
-                            minimumSize: const Size(double.infinity, 50),
+                            minimumSize:
+                                const Size(double.infinity, 50),
                           ),
                           child: const Text("Verificar"),
                         ),
 
                       const SizedBox(height: 20),
 
-                      /// FEEDBACK
                       if (respondeu)
                         Column(
                           children: [
                             Text(
-                              acertou ? "✅ Acertou!" : "❌ Errou!",
+                              acertou
+                                  ? "✅ Acertou!"
+                                  : "❌ Errou!",
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                color: acertou ? Colors.green : Colors.red,
+                                color: acertou
+                                    ? Colors.green
+                                    : Colors.red,
                               ),
                             ),
 
                             const SizedBox(height: 10),
 
-                            /// MOSTRAR RESPOSTA CORRETA
                             if (!acertou)
                               Text(
                                 textoOriginal,
-                                style: const TextStyle(fontSize: 16),
+                                style:
+                                    const TextStyle(fontSize: 16),
                               ),
 
                             const SizedBox(height: 20),
 
-                            /// PRÓXIMO
                             ElevatedButton(
                               onPressed: proximoVersiculo,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.orange,
-                                minimumSize: const Size(double.infinity, 50),
+                                minimumSize:
+                                    const Size(double.infinity, 50),
                               ),
                               child: const Text("Próximo"),
                             ),
@@ -271,6 +306,30 @@ class _VersiculosPageState extends State<VersiculosPage> {
                     ],
                   ),
                 ),
+              ),
+
+              const SizedBox(height: 10),
+
+              /// 🔥 BOTÕES DE NAVEGAÇÃO
+              Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed:
+                        indiceAtual > 0 ? voltarVersiculo : null,
+                    icon: const Icon(Icons.arrow_back,
+                        color: Colors.white),
+                  ),
+                  IconButton(
+                    onPressed: indiceAtual <
+                            versiculos.length - 1
+                        ? proximoVersiculo
+                        : null,
+                    icon: const Icon(Icons.arrow_forward,
+                        color: Colors.white),
+                  ),
+                ],
               ),
             ],
           ),

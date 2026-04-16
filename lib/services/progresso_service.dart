@@ -13,10 +13,16 @@ class ProgressoService {
     required String nivel,
   }) async {
     final user = _auth.currentUser;
-
     if (user == null) return;
 
-    await _db.collection("progresso").doc(user.uid).set({
+    final docId = "${livro}_$capitulo";
+
+    await _db
+        .collection("progresso")
+        .doc(user.uid)
+        .collection("capitulos")
+        .doc(docId)
+        .set({
       "livro": livro,
       "capitulo": capitulo,
       "indice": indice,
@@ -26,16 +32,36 @@ class ProgressoService {
     });
   }
 
-  static Future<Map<String, dynamic>?> carregarProgresso() async {
+  static Future<Map<String, dynamic>?> carregarProgresso(
+      String livro, String capitulo) async {
     final user = _auth.currentUser;
-
     if (user == null) return null;
 
-    final doc =
-        await _db.collection("progresso").doc(user.uid).get();
+    final docId = "${livro}_$capitulo";
+
+    final doc = await _db
+        .collection("progresso")
+        .doc(user.uid)
+        .collection("capitulos")
+        .doc(docId)
+        .get();
 
     if (!doc.exists) return null;
 
     return doc.data();
+  }
+
+  /// 🔥 NOVO: pegar TODOS os capítulos
+  static Future<List<Map<String, dynamic>>> listarCapitulos() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    final snapshot = await _db
+        .collection("progresso")
+        .doc(user.uid)
+        .collection("capitulos")
+        .get();
+
+    return snapshot.docs.map((doc) => doc.data()).toList();
   }
 }
