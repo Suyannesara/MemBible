@@ -1,2 +1,3 @@
 [] Ao invés de escrever o versículo todo, escrever só as palavras ocultas, e mostrar se certas ou erradas
 [] Home do app mostrando o feedback de treino, alguns dados sobre o que a pessoa ja passou
+[] Como disponibilizar firestore para os professores?

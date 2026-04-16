@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/progresso_service.dart';
 import 'services/biblia_service.dart';
 
 class VersiculosPage extends StatefulWidget {
@@ -24,6 +25,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
   int indiceAtual = 0;
   bool respondeu = false;
   bool acertou = false;
+  int acertos = 0;
 
   final respostaController = TextEditingController();
 
@@ -31,12 +33,26 @@ class _VersiculosPageState extends State<VersiculosPage> {
   void initState() {
     super.initState();
     buscarVersiculos();
+    carregarProgresso();
   }
 
   @override
   void dispose() {
     respostaController.dispose();
     super.dispose();
+  }
+
+  void carregarProgresso() async {
+    final data = await ProgressoService.carregarProgresso();
+
+    if (data != null &&
+        data["livro"] == widget.livro &&
+        data["capitulo"] == widget.capitulo) {
+      setState(() {
+        indiceAtual = data["indice"] ?? 0;
+        acertos = data["acertos"] ?? 0;
+      });
+    }
   }
 
   Future<void> buscarVersiculos() async {
@@ -82,19 +98,29 @@ class _VersiculosPageState extends State<VersiculosPage> {
     return palavras.join(" ");
   }
 
+  void salvarProgresso() {
+    ProgressoService.salvarProgresso(
+      livro: widget.livro,
+      capitulo: widget.capitulo,
+      indice: indiceAtual,
+      acertos: acertos,
+      nivel: widget.nivel,
+    );
+  }
+
   void verificarResposta(String respostaUsuario, String respostaCorreta) {
     String normalizar(String texto) {
-      return texto
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^\w\s]'), '')
-          .trim();
+      return texto.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
     }
 
     setState(() {
       respondeu = true;
-      acertou =
-          normalizar(respostaUsuario) == normalizar(respostaCorreta);
+      acertou = normalizar(respostaUsuario) == normalizar(respostaCorreta);
+
+      if (acertou) acertos++;
     });
+
+    salvarProgresso();
   }
 
   void proximoVersiculo() {
@@ -104,10 +130,12 @@ class _VersiculosPageState extends State<VersiculosPage> {
         respondeu = false;
         respostaController.clear();
       });
+
+      salvarProgresso();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("🎉 Você terminou o capítulo!")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("🎉 Terminou! Acertos: $acertos")));
     }
   }
 
@@ -119,9 +147,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
   @override
   Widget build(BuildContext context) {
     if (carregando) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final verso = versiculos[indiceAtual];
@@ -135,15 +161,12 @@ class _VersiculosPageState extends State<VersiculosPage> {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.red, Colors.orange],
-          ),
+          gradient: LinearGradient(colors: [Colors.red, Colors.orange]),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-
               /// 🔥 PROGRESSO
               LinearProgressIndicator(
                 value: progresso(),
@@ -175,12 +198,8 @@ class _VersiculosPageState extends State<VersiculosPage> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-
                       /// TEXTO COM LACUNAS
-                      Text(
-                        textoOculto,
-                        style: const TextStyle(fontSize: 18),
-                      ),
+                      Text(textoOculto, style: const TextStyle(fontSize: 18)),
 
                       const SizedBox(height: 20),
 
@@ -223,9 +242,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                color: acertou
-                                    ? Colors.green
-                                    : Colors.red,
+                                color: acertou ? Colors.green : Colors.red,
                               ),
                             ),
 
@@ -245,8 +262,7 @@ class _VersiculosPageState extends State<VersiculosPage> {
                               onPressed: proximoVersiculo,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.orange,
-                                minimumSize:
-                                    const Size(double.infinity, 50),
+                                minimumSize: const Size(double.infinity, 50),
                               ),
                               child: const Text("Próximo"),
                             ),
