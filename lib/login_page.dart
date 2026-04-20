@@ -26,11 +26,6 @@ class _LoginPageState extends State<LoginPage> {
         context,
       ).showSnackBar(const SnackBar(content: Text("Login realizado!")));
 
-      // redireciona para a home
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
     } catch (e) {
       ScaffoldMessenger.of(
         context,

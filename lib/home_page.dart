@@ -3,6 +3,7 @@ import 'services/biblia_service.dart';
 import 'services/progresso_service.dart';
 import 'versiculos_page.dart';
 import 'capitulos_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,6 +26,10 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     carregarDados();
+  }
+
+  Future<void> logout() async {
+    await FirebaseAuth.instance.signOut();
   }
 
   Future<void> carregarDados() async {
@@ -50,7 +55,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// 🔥 AGRUPAR POR LIVRO
   Map<String, List<Map<String, dynamic>>> agruparPorLivro() {
     Map<String, List<Map<String, dynamic>>> mapa = {};
 
@@ -67,7 +71,6 @@ class _HomePageState extends State<HomePage> {
     return mapa;
   }
 
-  /// 🔥 PROGRESSO DO LIVRO
   double progressoLivro(List caps) {
     int total = caps.length;
     int somaIndices = 0;
@@ -91,6 +94,32 @@ class _HomePageState extends State<HomePage> {
     final listaLivros = livrosMap.keys.toList();
 
     return Scaffold(
+      drawer: Drawer(
+        child: Column(
+          children: [
+            UserAccountsDrawerHeader(
+              decoration: const BoxDecoration(color: Colors.red),
+              accountName: const Text("Usuário"),
+              accountEmail: Text(
+                FirebaseAuth.instance.currentUser?.email ?? "",
+              ),
+              currentAccountPicture: const CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, color: Colors.red),
+              ),
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text("Sair"),
+              onTap: () async {
+                Navigator.pop(context);
+                await logout();
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         title: const Text("Treino Bíblico"),
         centerTitle: true,
@@ -102,7 +131,6 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Column(
           children: [
-            /// 🔥 CARD NOVO TREINO
             Padding(
               padding: const EdgeInsets.all(16),
               child: Card(
