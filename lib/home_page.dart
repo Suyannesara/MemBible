@@ -119,7 +119,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             UserAccountsDrawerHeader(
               decoration: const BoxDecoration(color: Colors.red),
-              accountName: const Text("Usuário"),
+              accountName: const Text(""),
               accountEmail: Text(
                 FirebaseAuth.instance.currentUser?.email ?? "",
               ),
@@ -358,8 +358,9 @@ class _HomePageState extends State<HomePage> {
               child: listaLivros.isEmpty
                   ? const Center(
                       child: Text(
-                        "Nenhum progresso ainda 😢",
-                        style: TextStyle(color: Colors.white),
+                        "Nenhum progresso ainda.\nComece a praticar!",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 20),
                       ),
                     )
                   : ListView.builder(

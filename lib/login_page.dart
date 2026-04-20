@@ -15,7 +15,24 @@ class _LoginPageState extends State<LoginPage> {
 
   final auth = FirebaseAuth.instance;
 
+  bool validarCampos() {
+    if (emailController.text.trim().isEmpty ||
+        senhaController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Preencha todos os campos"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> login() async {
+    if (!validarCampos()) return;
+
     try {
       await auth.signInWithEmailAndPassword(
         email: emailController.text.trim(),
@@ -25,28 +42,78 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Login realizado!")));
+    } on FirebaseAuthException catch (e) {
+      String mensagem;
 
+      switch (e.code) {
+        case 'user-not-found':
+          mensagem = "Usuário não encontrado.";
+          break;
+        case 'wrong-password':
+          mensagem = "Senha incorreta.";
+          break;
+        case 'invalid-email':
+          mensagem = "Email inválido.";
+          break;
+        case 'user-disabled':
+          mensagem = "Usuário desativado.";
+          break;
+        default:
+          mensagem = "Erro ao fazer login.";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Erro: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erro inesperado."),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> cadastro() async {
+    if (!validarCampos()) return;
+    
     try {
       await auth.createUserWithEmailAndPassword(
         email: emailController.text.trim(),
         password: senhaController.text.trim(),
       );
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Conta criada!")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Conta criada com sucesso!")),
+      );
+    } on FirebaseAuthException catch (e) {
+      String mensagem;
+
+      switch (e.code) {
+        case 'email-already-in-use':
+          mensagem = "Este email já está em uso.";
+          break;
+        case 'invalid-email':
+          mensagem = "Email inválido.";
+          break;
+        case 'weak-password':
+          mensagem = "A senha deve ter pelo menos 6 caracteres.";
+          break;
+        default:
+          mensagem = "Erro ao criar conta.";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Erro: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erro inesperado."),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
