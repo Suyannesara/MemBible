@@ -1,9 +1,10 @@
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/progresso_service.dart';
 import 'package:flutter/material.dart';
 import 'services/biblia_service.dart';
-import 'services/progresso_service.dart';
 import 'versiculos_page.dart';
 import 'capitulos_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,6 +22,9 @@ class _HomePageState extends State<HomePage> {
   String nivel = "facil";
   String? livroSelecionado;
   String capitulo = "1";
+
+  final capituloController = TextEditingController();
+  TextEditingController? typeAheadController;
 
   @override
   void initState() {
@@ -84,6 +88,22 @@ class _HomePageState extends State<HomePage> {
     return total == 0 ? 0 : (somaIndices / (total * 30));
   }
 
+  bool capituloValido() {
+    if (livroSelecionado == null) return false;
+
+    final livro = livros.firstWhere(
+      (l) => l["abbrev"]["pt"] == livroSelecionado,
+    );
+
+    int totalCaps = livro["chapters"];
+
+    final cap = int.tryParse(capituloController.text);
+
+    if (cap == null) return false;
+
+    return cap >= 1 && cap <= totalCaps;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (carregando) {
@@ -108,7 +128,6 @@ class _HomePageState extends State<HomePage> {
                 child: Icon(Icons.person, color: Colors.red),
               ),
             ),
-
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text("Sair"),
@@ -164,6 +183,7 @@ class _HomePageState extends State<HomePage> {
                         onChanged: (value) {
                           setState(() {
                             livroSelecionado = value;
+                            capituloController.clear();
                           });
                         },
                         decoration: const InputDecoration(
@@ -175,15 +195,78 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 15),
 
                       /// CAPÍTULO
-                      TextField(
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: "Capítulo",
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) {
-                          capitulo = value;
+                      TypeAheadField<int>(
+                        builder: (context, controller, focusNode) {
+                          typeAheadController = controller;
+
+                          return TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: "Capítulo",
+                              border: const OutlineInputBorder(),
+                              errorText:
+                                  controller.text.isEmpty || capituloValido()
+                                  ? null
+                                  : "Capítulo inválido",
+                            ),
+                            onChanged: (value) {
+                              capituloController.text = value;
+                              setState(() {});
+                            },
+                          );
                         },
+
+                        suggestionsCallback: (pattern) {
+                          if (livroSelecionado == null) return [];
+
+                          final livro = livros.firstWhere(
+                            (l) => l["abbrev"]["pt"] == livroSelecionado,
+                          );
+
+                          int totalCaps = livro["chapters"];
+                          final lista = List.generate(totalCaps, (i) => i + 1);
+
+                          if (pattern.isEmpty) return lista;
+
+                          final numeroDigitado = int.tryParse(pattern);
+
+                          if (numeroDigitado != null) {
+                            final filtrados = lista
+                                .where((c) => c.toString().startsWith(pattern))
+                                .toList();
+
+                            filtrados.sort((a, b) {
+                              if (a == numeroDigitado) return -1;
+                              if (b == numeroDigitado) return 1;
+                              return a.compareTo(b);
+                            });
+
+                            return filtrados;
+                          }
+
+                          return [];
+                        },
+
+                        itemBuilder: (context, suggestion) {
+                          return ListTile(title: Text("Capítulo $suggestion"));
+                        },
+
+                        onSelected: (suggestion) {
+                          final texto = suggestion.toString();
+
+                          capitulo = texto;
+                          capituloController.text = texto;
+                          typeAheadController?.text = texto;
+
+                          setState(() {});
+                        },
+
+                        emptyBuilder: (context) => const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: Text("Capítulo não encontrado"),
+                        ),
                       ),
 
                       const SizedBox(height: 15),
@@ -221,15 +304,22 @@ class _HomePageState extends State<HomePage> {
                       /// BOTÃO
                       ElevatedButton(
                         onPressed: () {
-                          if (livroSelecionado == null || capitulo.isEmpty)
+                          if (!capituloValido()) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Capítulo inválido 😬"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                             return;
+                          }
 
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => VersiculosPage(
                                 livro: livroSelecionado!,
-                                capitulo: capitulo,
+                                capitulo: capituloController.text,
                                 nivel: nivel,
                               ),
                             ),
@@ -247,7 +337,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            /// 🔥 TÍTULO
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Align(
@@ -265,7 +354,6 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 10),
 
-            /// 🔥 LISTA POR LIVRO
             Expanded(
               child: listaLivros.isEmpty
                   ? const Center(
@@ -287,25 +375,19 @@ class _HomePageState extends State<HomePage> {
                           ),
                           child: ListTile(
                             title: Text("📖 $livro"),
-
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 5),
-
                                 LinearProgressIndicator(
                                   value: progressoLivro(caps),
                                   minHeight: 8,
                                 ),
-
                                 const SizedBox(height: 5),
-
                                 Text("${caps.length} capítulos estudados"),
                               ],
                             ),
-
                             trailing: const Icon(Icons.arrow_forward),
-
                             onTap: () {
                               Navigator.push(
                                 context,
