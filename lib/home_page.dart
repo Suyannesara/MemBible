@@ -16,6 +16,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List livros = [];
   List<Map<String, dynamic>> capitulosSalvos = [];
+  Map<String, dynamic>? versiculoDoDia;
 
   bool carregando = true;
 
@@ -40,10 +41,13 @@ class _HomePageState extends State<HomePage> {
     try {
       final dataLivros = await BibliaService.getLivros();
       final caps = await ProgressoService.listarCapitulos();
+      final versoDia = await buscarVersiculoDoDia(dataLivros);
+      print("VERSO DIA: $versoDia");
 
       setState(() {
         livros = dataLivros;
         capitulosSalvos = caps;
+        versiculoDoDia = versoDia;
 
         if (livros.isNotEmpty) {
           livroSelecionado = livros[0]["abbrev"]["pt"];
@@ -51,11 +55,48 @@ class _HomePageState extends State<HomePage> {
 
         carregando = false;
       });
-    } catch (e) {
+    } catch (e,s) {
       print(e);
+      print(s);
       setState(() {
         carregando = false;
       });
+    }
+  }
+
+  Future<Map<String, dynamic>?> buscarVersiculoDoDia(List livros) async {
+    try {
+      final hoje = DateTime.now();
+
+      final seed = hoje.year * 10000 + hoje.month * 100 + hoje.day;
+
+      final livroIndex = seed % livros.length;
+
+      final livro = livros[livroIndex];
+
+      final totalCaps = livro["chapters"];
+
+      final capitulo = (seed % totalCaps) + 1;
+
+      final dados = await BibliaService.getVersiculos(
+        "nvi",
+        livro["abbrev"]["pt"],
+        capitulo.toString(),
+      );
+
+      final versos = dados["verses"];
+
+      final versiculoIndex = seed % versos.length;
+
+      return {
+        "livro": livro["name"],
+        "capitulo": capitulo,
+        "numero": versos[versiculoIndex]["number"],
+        "texto": versos[versiculoIndex]["text"],
+      };
+    } catch (e) {
+      print(e);
+      return null;
     }
   }
 
@@ -150,6 +191,51 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Column(
           children: [
+            if (versiculoDoDia != null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        const Text(
+                          "🌟 Versículo do Dia",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        Text(
+                          versiculoDoDia!["texto"],
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Text(
+                          "${versiculoDoDia!["livro"]} "
+                          "${versiculoDoDia!["capitulo"]}:"
+                          "${versiculoDoDia!["numero"]}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
             Padding(
               padding: const EdgeInsets.all(16),
               child: Card(
