@@ -18,6 +18,8 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> capitulosSalvos = [];
   Map<String, dynamic>? versiculoDoDia;
   int totalMemorizados = 0;
+  int metaDiaria = 5;
+  int streak = 0;
 
   bool carregando = true;
 
@@ -44,12 +46,16 @@ class _HomePageState extends State<HomePage> {
       final caps = await ProgressoService.listarCapitulos();
       final versoDia = await buscarVersiculoDoDia(dataLivros);
       final total = await ProgressoService.contarVersiculosMemorizados();
+      final s = await ProgressoService.carregarStreak();
+      final meta = await ProgressoService.carregarMetaDiaria();
 
       setState(() {
         livros = dataLivros;
         capitulosSalvos = caps;
         versiculoDoDia = versoDia;
         totalMemorizados = total;
+        streak = s;
+        metaDiaria = meta;
 
         if (livros.isNotEmpty) {
           livroSelecionado = livros[0]["abbrev"]["pt"];
@@ -234,7 +240,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Card(
@@ -244,18 +249,102 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Column(
                       children: [
-                        const Icon(Icons.emoji_events, color: Colors.red),
-                        const SizedBox(width: 10),
-                        Text(
-                          "Versículos memorizados: $totalMemorizados",
-                          style: const TextStyle(
+                        const Text(
+                          "📊 Seu progresso diário",
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+
+                        const SizedBox(height: 12),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Column(
+                              children: [
+                                const Icon(
+                                  Icons.local_fire_department,
+                                  color: Colors.orange,
+                                ),
+                                Text("$streak dias"),
+                                const Text("Streak"),
+                              ],
+                            ),
+                            Column(
+                              children: [
+                                const Icon(Icons.flag, color: Colors.blue),
+                                Text("$metaDiaria"),
+                                const Text("Meta"),
+                              ],
+                            ),
+                            Column(
+                              children: [
+                                const Icon(Icons.book, color: Colors.red),
+                                Text("$totalMemorizados"),
+                                const Text("Memorizados"),
+                              ],
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Text(
+                          totalMemorizados >= metaDiaria
+                              ? "🎉 Você já cumpriu a meta diária!"
+                              : "Faltam ${metaDiaria - totalMemorizados} versículos para cumprir a meta de hoje.",
+                          textAlign: TextAlign.center,
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        ElevatedButton(
+                          onPressed: () async {
+                            final controller = TextEditingController(
+                              text: metaDiaria.toString(),
+                            );
+
+                            final result = await showDialog<int>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text("Definir meta diária"),
+                                content: TextField(
+                                  controller: controller,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    hintText: "Ex: 5",
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text("Cancelar"),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      final value = int.tryParse(
+                                        controller.text,
+                                      );
+                                      Navigator.pop(context, value);
+                                    },
+                                    child: const Text("Salvar"),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (result != null && result > 0) {
+                              await ProgressoService.salvarMetaDiaria(result);
+                              await carregarDados();
+                            }
+                          },
+                          child: const Text("Alterar meta diária"),
+                        ),
+                        const SizedBox(height: 5),
                       ],
                     ),
                   ),

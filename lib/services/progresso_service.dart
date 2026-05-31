@@ -129,4 +129,81 @@ class ProgressoService {
 
     return total;
   }
+
+  static Future<void> salvarMetaDiaria(int meta) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db.collection("usuarios").doc(user.uid).set({
+      "metaDiaria": meta,
+    }, SetOptions(merge: true));
+  }
+
+  static Future<int> carregarMetaDiaria() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 5;
+
+      final doc = await _db.collection("usuarios").doc(user.uid).get();
+
+      final data = doc.data();
+      if (data == null) return 5;
+
+      final meta = data["metaDiaria"];
+
+      if (meta is int) return meta;
+      if (meta is String) return int.tryParse(meta) ?? 5;
+
+      return 5;
+    } catch (e) {
+      return 5;
+    }
+  }
+
+  static Future<void> atualizarUsoDiario() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final hoje = DateTime.now();
+    final hojeStr = "${hoje.year}-${hoje.month}-${hoje.day}";
+
+    final ref = _db.collection("usuarios").doc(user.uid);
+
+    await ref.set({"ultimoDiaUso": hojeStr}, SetOptions(merge: true));
+  }
+
+  static Future<int> carregarStreak() async {
+    final user = _auth.currentUser;
+    if (user == null) return 0;
+
+    final ref = await _db.collection("usuarios").doc(user.uid).get();
+
+    if (!ref.exists) return 0;
+
+    final data = ref.data();
+    if (data == null) return 0;
+
+    final ultimo = data["ultimoDiaUso"];
+
+    if (ultimo == null) return 0;
+
+    final parts = ultimo.split("-");
+    final lastDate = DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+
+    final hoje = DateTime.now();
+
+    final diff = hoje.difference(lastDate).inDays;
+
+    if (diff == 0) {
+      return 1; // hoje ativo
+    } else if (diff == 1) {
+      return 2; // continuidade simples (MVP streak)
+    } else {
+      return 0; // quebrou streak
+    }
+  }
 }
