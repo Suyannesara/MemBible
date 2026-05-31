@@ -20,6 +20,8 @@ class VersiculosPage extends StatefulWidget {
 
 class _VersiculosPageState extends State<VersiculosPage> {
   List versiculos = [];
+  List<int> memorizados = [];
+
   bool carregando = true;
 
   int indiceAtual = 0;
@@ -44,7 +46,6 @@ class _VersiculosPageState extends State<VersiculosPage> {
     super.dispose();
   }
 
-  /// 🔥 BUSCAR + PROGRESSO
   Future<void> buscarVersiculos() async {
     try {
       final data = await BibliaService.getVersiculos(
@@ -58,8 +59,14 @@ class _VersiculosPageState extends State<VersiculosPage> {
         widget.capitulo,
       );
 
+      final mem = await ProgressoService.carregarMemorizados(
+        livro: widget.livro,
+        capitulo: widget.capitulo,
+      );
+
       setState(() {
         versiculos = data["verses"];
+        memorizados = mem;
         carregando = false;
 
         if (progresso != null) {
@@ -75,66 +82,40 @@ class _VersiculosPageState extends State<VersiculosPage> {
     }
   }
 
-  /// 🔥 PROCESSAR PALAVRAS
   List<Map<String, dynamic>> processarVersiculo(String texto) {
     List<String> palavras = texto.split(" ");
 
-    int quantidadeEsconder;
-
-    if (widget.nivel == "facil") {
-      quantidadeEsconder = (palavras.length * 0.2).round();
-    } else if (widget.nivel == "medio") {
-      quantidadeEsconder = (palavras.length * 0.4).round();
-    } else {
-      quantidadeEsconder = (palavras.length * 0.6).round();
-    }
+    int qtd = widget.nivel == "facil"
+        ? (palavras.length * 0.2).round()
+        : widget.nivel == "medio"
+            ? (palavras.length * 0.4).round()
+            : (palavras.length * 0.6).round();
 
     List<int> indices = List.generate(palavras.length, (i) => i);
     indices.shuffle();
 
-    List<int> escolhidos = indices.take(quantidadeEsconder).toList();
+    List<int> escondidas = indices.take(qtd).toList();
 
-    List<Map<String, dynamic>> resultado = [];
-
-    for (int i = 0; i < palavras.length; i++) {
-      resultado.add({
+    return List.generate(palavras.length, (i) {
+      return {
         "texto": palavras[i],
-        "escondida": escolhidos.contains(i),
-      });
-    }
-
-    return resultado;
+        "escondida": escondidas.contains(i),
+      };
+    });
   }
 
-  /// 🔥 SALVAR
-  void salvarProgresso() {
-    ProgressoService.salvarProgresso(
-      livro: widget.livro,
-      capitulo: widget.capitulo,
-      indice: indiceAtual,
-      acertos: acertos,
-      nivel: widget.nivel,
-    );
-  }
-
-  /// 🔥 VERIFICAR POR PALAVRA
   void verificarRespostaCampos() {
-    String normalizar(String texto) {
-      return texto.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
-    }
+    String norm(String t) =>
+        t.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
 
     int inputIndex = 0;
     bool tudoCorreto = true;
 
-    for (var palavra in palavrasProcessadas) {
-      if (palavra["escondida"]) {
-        String respostaUsuario = controllers[inputIndex].text;
-        String correta = palavra["texto"];
-
-        if (normalizar(respostaUsuario) != normalizar(correta)) {
+    for (var p in palavrasProcessadas) {
+      if (p["escondida"]) {
+        if (norm(controllers[inputIndex].text) != norm(p["texto"])) {
           tudoCorreto = false;
         }
-
         inputIndex++;
       }
     }
@@ -145,10 +126,15 @@ class _VersiculosPageState extends State<VersiculosPage> {
       if (acertou) acertos++;
     });
 
-    salvarProgresso();
+    ProgressoService.salvarProgresso(
+      livro: widget.livro,
+      capitulo: widget.capitulo,
+      indice: indiceAtual,
+      acertos: acertos,
+      nivel: widget.nivel,
+    );
   }
 
-  /// 🔥 PRÓXIMO
   void proximoVersiculo() {
     if (indiceAtual < versiculos.length - 1) {
       setState(() {
@@ -162,16 +148,13 @@ class _VersiculosPageState extends State<VersiculosPage> {
         }
         controllers.clear();
       });
-
-      salvarProgresso();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("🎉 Terminou! Acertos: $acertos")),
+        const SnackBar(content: Text("🎉 Terminou!")),
       );
     }
   }
 
-  /// 🔥 VOLTAR
   void voltarVersiculo() {
     if (indiceAtual > 0) {
       setState(() {
@@ -188,7 +171,6 @@ class _VersiculosPageState extends State<VersiculosPage> {
     }
   }
 
-  /// 🔥 PROGRESSO
   double progresso() {
     if (versiculos.isEmpty) return 0;
     return (indiceAtual + 1) / versiculos.length;
@@ -203,17 +185,21 @@ class _VersiculosPageState extends State<VersiculosPage> {
     }
 
     final verso = versiculos[indiceAtual];
-    final textoOriginal = verso["text"];
 
-    /// 🔥 PROCESSA UMA VEZ
     if (palavrasProcessadas.isEmpty) {
-      palavrasProcessadas = processarVersiculo(textoOriginal);
+      palavrasProcessadas = processarVersiculo(verso["text"]);
 
       controllers = palavrasProcessadas
           .where((p) => p["escondida"])
           .map((_) => TextEditingController())
           .toList();
     }
+
+    int inputIndex = 0;
+
+    final int versiculoNumero = verso["number"];
+
+    final bool isMemorizado = memorizados.contains(versiculoNumero);
 
     return Scaffold(
       appBar: AppBar(
@@ -228,151 +214,86 @@ class _VersiculosPageState extends State<VersiculosPage> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              LinearProgressIndicator(
-                value: progresso(),
-                minHeight: 10,
-                backgroundColor: Colors.grey[300],
-                color: Colors.white,
-              ),
-
+              LinearProgressIndicator(value: progresso()),
               const SizedBox(height: 10),
 
               Text(
-                "Versículo ${indiceAtual + 1} de ${versiculos.length}",
-                style: const TextStyle(color: Colors.white),
-              ),
-
-              const SizedBox(height: 20),
-
-              Text(
-                "Versículo ${verso["number"]}",
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                "Versículo $versiculoNumero ${isMemorizado ? "✔" : ""}",
+                style: const TextStyle(color: Colors.white, fontSize: 16),
               ),
 
               const SizedBox(height: 20),
 
               Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                elevation: 10,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      /// 🔥 TEXTO COM INPUTS
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: palavrasProcessadas.map((palavra) {
-                          if (!palavra["escondida"]) {
-                            return Text(
-                              palavra["texto"],
-                              style: const TextStyle(fontSize: 18),
-                            );
-                          } else {
-                            int index = palavrasProcessadas
-                                .where((p) => p["escondida"])
-                                .toList()
-                                .indexOf(palavra);
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: palavrasProcessadas.map((p) {
+                      if (!p["escondida"]) {
+                        return Text(p["texto"]);
+                      } else {
+                        final index = inputIndex++;
+                        final c = controllers[index];
 
-                            String digitado = controllers[index].text;
-
-                            bool correta = digitado.toLowerCase().trim() ==
-                                palavra["texto"].toLowerCase().trim();
-
-                            return SizedBox(
-                              width: 90,
-                              child: TextField(
-                                controller: controllers[index],
-                                enabled: !respondeu,
-                                decoration: InputDecoration(
-                                  hintText: "___",
-                                  border: const OutlineInputBorder(),
-                                  filled: respondeu,
-                                  fillColor: respondeu
-                                      ? (correta
-                                          ? Colors.green[200]
-                                          : Colors.red[200])
-                                      : null,
-                                ),
-                              ),
-                            );
-                          }
-                        }).toList(),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      if (!respondeu)
-                        ElevatedButton(
-                          onPressed: verificarRespostaCampos,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            minimumSize: const Size(double.infinity, 50),
+                        return SizedBox(
+                          width: 90,
+                          child: TextField(
+                            controller: c,
+                            enabled: !respondeu,
+                            decoration: InputDecoration(
+                              hintText: "___",
+                              filled: respondeu,
+                              fillColor: Colors.grey[200],
+                            ),
                           ),
-                          child: const Text("Verificar"),
-                        ),
-
-                      const SizedBox(height: 20),
-
-                      if (respondeu)
-                        Column(
-                          children: [
-                            Text(
-                              acertou ? "✅ Acertou!" : "❌ Errou!",
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: acertou ? Colors.green : Colors.red,
-                              ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            if (!acertou)
-                              Text(
-                                textoOriginal,
-                                style: const TextStyle(fontSize: 16),
-                              ),
-
-                            const SizedBox(height: 20),
-
-                            ElevatedButton(
-                              onPressed: proximoVersiculo,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                minimumSize: const Size(double.infinity, 50),
-                              ),
-                              child: const Text("Próximo"),
-                            ),
-                          ],
-                        ),
-                    ],
+                        );
+                      }
+                    }).toList(),
                   ),
                 ),
               ),
 
               const SizedBox(height: 10),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    onPressed: indiceAtual > 0 ? voltarVersiculo : null,
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  ),
-                  IconButton(
-                    onPressed: indiceAtual < versiculos.length - 1
-                        ? proximoVersiculo
-                        : null,
-                    icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                  ),
-                ],
+              if (!respondeu)
+                ElevatedButton(
+                  onPressed: verificarRespostaCampos,
+                  child: const Text("Verificar"),
+                ),
+
+              if (respondeu)
+                ElevatedButton(
+                  onPressed: proximoVersiculo,
+                  child: const Text("Próximo"),
+                ),
+
+              const SizedBox(height: 10),
+
+              ElevatedButton(
+                onPressed: () async {
+                  await ProgressoService.marcarVersiculoMemorizado(
+                    livro: widget.livro,
+                    capitulo: widget.capitulo,
+                    versiculo: versiculoNumero,
+                  );
+
+                  setState(() {
+                    if (!memorizados.contains(versiculoNumero)) {
+                      memorizados.add(versiculoNumero);
+                    }
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  minimumSize: const Size(double.infinity, 45),
+                ),
+                child: Text(
+                  isMemorizado
+                      ? "✔ Já memorizado"
+                      : "✔ Marcar como memorizado",
+                ),
               ),
             ],
           ),

@@ -17,6 +17,7 @@ class _HomePageState extends State<HomePage> {
   List livros = [];
   List<Map<String, dynamic>> capitulosSalvos = [];
   Map<String, dynamic>? versiculoDoDia;
+  int totalMemorizados = 0;
 
   bool carregando = true;
 
@@ -42,12 +43,13 @@ class _HomePageState extends State<HomePage> {
       final dataLivros = await BibliaService.getLivros();
       final caps = await ProgressoService.listarCapitulos();
       final versoDia = await buscarVersiculoDoDia(dataLivros);
-      print("VERSO DIA: $versoDia");
+      final total = await ProgressoService.contarVersiculosMemorizados();
 
       setState(() {
         livros = dataLivros;
         capitulosSalvos = caps;
         versiculoDoDia = versoDia;
+        totalMemorizados = total;
 
         if (livros.isNotEmpty) {
           livroSelecionado = livros[0]["abbrev"]["pt"];
@@ -55,7 +57,7 @@ class _HomePageState extends State<HomePage> {
 
         carregando = false;
       });
-    } catch (e,s) {
+    } catch (e, s) {
       print(e);
       print(s);
       setState(() {
@@ -189,9 +191,50 @@ class _HomePageState extends State<HomePage> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(colors: [Colors.red, Colors.orange]),
         ),
-        child: Column(
-          children: [
-            if (versiculoDoDia != null)
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              if (versiculoDoDia != null)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Card(
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          const Text(
+                            "🌟 Versículo do Dia",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+                          Text(
+                            versiculoDoDia!["texto"],
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            "${versiculoDoDia!["livro"]} "
+                            "${versiculoDoDia!["capitulo"]}:"
+                            "${versiculoDoDia!["numero"]}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Card(
@@ -201,33 +244,16 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          "🌟 Versículo do Dia",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: 15),
-
+                        const Icon(Icons.emoji_events, color: Colors.red),
+                        const SizedBox(width: 10),
                         Text(
-                          versiculoDoDia!["texto"],
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        Text(
-                          "${versiculoDoDia!["livro"]} "
-                          "${versiculoDoDia!["capitulo"]}:"
-                          "${versiculoDoDia!["numero"]}",
+                          "Versículos memorizados: $totalMemorizados",
                           style: const TextStyle(
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.red,
                           ),
                         ),
                       ],
@@ -236,262 +262,261 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                elevation: 10,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Text(
-                        "📖 Novo treino",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      /// LIVRO
-                      DropdownButtonFormField<String>(
-                        value: livroSelecionado,
-                        items: livros.map<DropdownMenuItem<String>>((livro) {
-                          return DropdownMenuItem<String>(
-                            value: livro["abbrev"]["pt"],
-                            child: Text(livro["name"]),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            livroSelecionado = value;
-                            capituloController.clear();
-                          });
-                        },
-                        decoration: const InputDecoration(
-                          labelText: "Livro",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-
-                      const SizedBox(height: 15),
-
-                      /// CAPÍTULO
-                      TypeAheadField<int>(
-                        builder: (context, controller, focusNode) {
-                          typeAheadController = controller;
-
-                          return TextField(
-                            controller: controller,
-                            focusNode: focusNode,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: "Capítulo",
-                              border: const OutlineInputBorder(),
-                              errorText:
-                                  controller.text.isEmpty || capituloValido()
-                                  ? null
-                                  : "Capítulo inválido",
-                            ),
-                            onChanged: (value) {
-                              capituloController.text = value;
-                              setState(() {});
-                            },
-                          );
-                        },
-
-                        suggestionsCallback: (pattern) {
-                          if (livroSelecionado == null) return [];
-
-                          final livro = livros.firstWhere(
-                            (l) => l["abbrev"]["pt"] == livroSelecionado,
-                          );
-
-                          int totalCaps = livro["chapters"];
-                          final lista = List.generate(totalCaps, (i) => i + 1);
-
-                          if (pattern.isEmpty) return lista;
-
-                          final numeroDigitado = int.tryParse(pattern);
-
-                          if (numeroDigitado != null) {
-                            final filtrados = lista
-                                .where((c) => c.toString().startsWith(pattern))
-                                .toList();
-
-                            filtrados.sort((a, b) {
-                              if (a == numeroDigitado) return -1;
-                              if (b == numeroDigitado) return 1;
-                              return a.compareTo(b);
-                            });
-
-                            return filtrados;
-                          }
-
-                          return [];
-                        },
-
-                        itemBuilder: (context, suggestion) {
-                          return ListTile(title: Text("Capítulo $suggestion"));
-                        },
-
-                        onSelected: (suggestion) {
-                          final texto = suggestion.toString();
-
-                          capitulo = texto;
-                          capituloController.text = texto;
-                          typeAheadController?.text = texto;
-
-                          setState(() {});
-                        },
-
-                        emptyBuilder: (context) => const Padding(
-                          padding: EdgeInsets.all(10),
-                          child: Text("Capítulo não encontrado"),
-                        ),
-                      ),
-
-                      const SizedBox(height: 15),
-
-                      /// NÍVEL
-                      DropdownButtonFormField<String>(
-                        value: nivel,
-                        items: const [
-                          DropdownMenuItem(
-                            value: "facil",
-                            child: Text("Fácil"),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 10,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        const Text(
+                          "📖 Novo treino",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
-                          DropdownMenuItem(
-                            value: "medio",
-                            child: Text("Médio"),
-                          ),
-                          DropdownMenuItem(
-                            value: "dificil",
-                            child: Text("Difícil"),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            nivel = value!;
-                          });
-                        },
-                        decoration: const InputDecoration(
-                          labelText: "Dificuldade",
-                          border: OutlineInputBorder(),
                         ),
-                      ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      /// BOTÃO
-                      ElevatedButton(
-                        onPressed: () {
-                          if (!capituloValido()) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Capítulo inválido 😬"),
-                                backgroundColor: Colors.red,
-                              ),
+                        /// LIVRO
+                        DropdownButtonFormField<String>(
+                          value: livroSelecionado,
+                          items: livros.map<DropdownMenuItem<String>>((livro) {
+                            return DropdownMenuItem<String>(
+                              value: livro["abbrev"]["pt"],
+                              child: Text(livro["name"]),
                             );
-                            return;
-                          }
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => VersiculosPage(
-                                livro: livroSelecionado!,
-                                capitulo: capituloController.text,
-                                nivel: nivel,
-                              ),
-                            ),
-                          ).then((_) => carregarDados());
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          minimumSize: const Size(double.infinity, 50),
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              livroSelecionado = value;
+                              capituloController.clear();
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: "Livro",
+                            border: OutlineInputBorder(),
+                          ),
                         ),
-                        child: const Text("🔥 Iniciar treino"),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "📊 Seu progresso",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+                        const SizedBox(height: 15),
 
-            const SizedBox(height: 10),
+                        /// CAPÍTULO
+                        TypeAheadField<int>(
+                          builder: (context, controller, focusNode) {
+                            typeAheadController = controller;
 
-            Expanded(
-              child: listaLivros.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "Nenhum progresso ainda.\nComece a praticar!",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontSize: 20),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: listaLivros.length,
-                      itemBuilder: (context, index) {
-                        final livro = listaLivros[index];
-                        final caps = livrosMap[livro]!;
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: "Capítulo",
+                                border: const OutlineInputBorder(),
+                                errorText:
+                                    controller.text.isEmpty || capituloValido()
+                                    ? null
+                                    : "Capítulo inválido",
+                              ),
+                              onChanged: (value) {
+                                capituloController.text = value;
+                                setState(() {});
+                              },
+                            );
+                          },
 
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 5,
+                          suggestionsCallback: (pattern) {
+                            if (livroSelecionado == null) return [];
+
+                            final livro = livros.firstWhere(
+                              (l) => l["abbrev"]["pt"] == livroSelecionado,
+                            );
+
+                            int totalCaps = livro["chapters"];
+                            final lista = List.generate(
+                              totalCaps,
+                              (i) => i + 1,
+                            );
+
+                            if (pattern.isEmpty) return lista;
+
+                            final numeroDigitado = int.tryParse(pattern);
+
+                            if (numeroDigitado != null) {
+                              final filtrados = lista
+                                  .where(
+                                    (c) => c.toString().startsWith(pattern),
+                                  )
+                                  .toList();
+
+                              filtrados.sort((a, b) {
+                                if (a == numeroDigitado) return -1;
+                                if (b == numeroDigitado) return 1;
+                                return a.compareTo(b);
+                              });
+
+                              return filtrados;
+                            }
+
+                            return [];
+                          },
+
+                          itemBuilder: (context, suggestion) {
+                            return ListTile(
+                              title: Text("Capítulo $suggestion"),
+                            );
+                          },
+
+                          onSelected: (suggestion) {
+                            final texto = suggestion.toString();
+
+                            capitulo = texto;
+                            capituloController.text = texto;
+                            typeAheadController?.text = texto;
+
+                            setState(() {});
+                          },
+
+                          emptyBuilder: (context) => const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: Text("Capítulo não encontrado"),
                           ),
-                          child: ListTile(
-                            title: Text("📖 $livro"),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 5),
-                                LinearProgressIndicator(
-                                  value: progressoLivro(caps),
-                                  minHeight: 8,
-                                ),
-                                const SizedBox(height: 5),
-                                Text("${caps.length} capítulos estudados"),
-                              ],
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        /// NÍVEL
+                        DropdownButtonFormField<String>(
+                          value: nivel,
+                          items: const [
+                            DropdownMenuItem(
+                              value: "facil",
+                              child: Text("Fácil"),
                             ),
-                            trailing: const Icon(Icons.arrow_forward),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => CapitulosPage(
-                                    livro: livro,
-                                    capitulos: caps,
-                                  ),
-                                ),
-                              ).then((_) => carregarDados());
-                            },
+                            DropdownMenuItem(
+                              value: "medio",
+                              child: Text("Médio"),
+                            ),
+                            DropdownMenuItem(
+                              value: "dificil",
+                              child: Text("Difícil"),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              nivel = value!;
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: "Dificuldade",
+                            border: OutlineInputBorder(),
                           ),
-                        );
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        /// BOTÃO
+                        ElevatedButton(
+                          onPressed: () {
+                            if (!capituloValido()) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Capítulo inválido 😬"),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => VersiculosPage(
+                                  livro: livroSelecionado!,
+                                  capitulo: capituloController.text,
+                                  nivel: nivel,
+                                ),
+                              ),
+                            ).then((_) => carregarDados());
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: const Text("🔥 Iniciar treino"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "📊 Seu progresso",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              /// 🔥 AQUI É O ÚNICO AJUSTE IMPORTANTE
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: listaLivros.length,
+                itemBuilder: (context, index) {
+                  final livro = listaLivros[index];
+                  final caps = livrosMap[livro]!;
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 5,
+                    ),
+                    child: ListTile(
+                      title: Text("📖 $livro"),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 5),
+                          LinearProgressIndicator(
+                            value: progressoLivro(caps),
+                            minHeight: 8,
+                          ),
+                          const SizedBox(height: 5),
+                          Text("${caps.length} capítulos estudados"),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.arrow_forward),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                CapitulosPage(livro: livro, capitulos: caps),
+                          ),
+                        ).then((_) => carregarDados());
                       },
                     ),
-            ),
-          ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
